@@ -59,11 +59,28 @@ class Node:
     def has_type(self, type):
         return self.type == type
 
-    def adjacent_nodes(self):
+    def is_parent_of(self, node):
+        options = {
+            Edge(self, node, 'none', 'arrow'),
+            Edge(self, node, 'open', 'arrow'),
+            Edge(self, node, 'none', 'arrow')
+        }
+        return len(options.intersection(self.edges)) > 0
+
+    def adjacent_nodes(self, type=None):
         nodes = set()
         for edge in self.edges:
             nodes = nodes.union({node for node in edge.nodes()})
-        return nodes.difference({self})
+        nodes = nodes.difference({self})
+        if type:
+            nodes = filter(lambda node: node.has_type(type), nodes)
+        return nodes
+
+    def parents(self, type=None):
+        return filter(
+            lambda node: node.is_parent_of(self),
+            self.adjacent_nodes(type)
+        )
 
     def order(self):
         return len(self.edges)
@@ -92,7 +109,7 @@ class Graph:
         for node1, node2 in combinations(self.nodes_of_type('system'), 2):
             if not self.has_edge_between(node1, node2):
                 edges.add((node1, node2))
-        return edges
+        yield edges
 
     def add_node(self, id, type):
         node = Node(id, type)
@@ -117,7 +134,7 @@ class Graph:
 
     def add_node_of_type(self, type):
         vars = self.nodes_of_type(type)
-        id = max([v.id for v in vars]) + 1 if vars else 0
+        id = max(v.id for v in vars) + 1 if vars else 0
         return self.add_node(id, type)
 
     def has_edge_between(self, node1, node2):

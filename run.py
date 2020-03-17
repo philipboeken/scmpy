@@ -10,16 +10,14 @@ N = 200
 acyclic = 0
 surgical = 0
 seed = 1
-dep = 'linear'
 
 outdir = f"./out/p={p}_q={q}_eps={eps}_eta={eta}_N={N}" \
-         + f"_acyclic={acyclic}_surgical={surgical}_seed={seed}" \
-         + f"_dep={dep}"
+         + f"_acyclic={acyclic}_surgical={surgical}_seed={seed}"
 
 if os.path.exists(outdir):
     shutil.rmtree(outdir)
 os.mkdir(outdir)
 
-sim = SCMSimulator(p, q, eps, eta, N, acyclic, surgical, seed, dep)
+sim = SCMSimulator(p, q, eps, eta, N, acyclic, surgical, seed)
 sim.simulate()
 sim.saveTo(outdir)

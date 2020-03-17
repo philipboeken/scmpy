@@ -3,10 +3,33 @@ from graph import Graph
 
 
 class f:
-    def __init__(self, codomain, domain, mapping):
+    def __init__(
+        self,
+        codomain,
+        system_domain,
+        system_map,
+        confounders_domain,
+        confounders_map,
+        context_domain,
+        context_map,
+        exogenous_domain,
+        exogenous_map
+    ):
         self.codomain = codomain
-        self.domain = domain
-        self.mapping = mapping
+        self.system_domain = set(system_domain)
+        self.system_map = system_map
+        self.confounders_domain = set(confounders_domain)
+        self.confounders_map = confounders_map
+        self.context_domain = set(context_domain)
+        self.context_map = context_map
+        self.exogenous_domain = set(exogenous_domain)
+        self.exogenous_map = exogenous_map
+
+    def evaluate(self, system, confounders, context, exogenous):
+        return (self.system_map(*system)
+                + self.confounders_map(*confounders)
+                + self.context_map(*context)
+                + self.exogenous_map(*exogenous))
 
 
 class SCM:
@@ -31,6 +54,9 @@ class SCM:
         node = self.H.add_node_of_type('exogenous')
         self.J.add(node)
         return node
+
+    def add_map(self, f):
+        self.F.add(f)
 
     def connect_context_variable(self, cnode, snode=None):
         snode = snode if snode else self.system_variable_of_lowest_order()
