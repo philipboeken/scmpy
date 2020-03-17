@@ -22,10 +22,13 @@ class Edge:
         return hash((data for data in self.data))
 
     def nodes(self):
-        return {c[0] for c in self.data}
+        return (c[0] for c in self.data)
 
     def is_between(self, node1, node2):
         return self.nodes() == {node1, node2}
+
+    def has_node_of_type(self, type):
+        return any(node.has_type(type) for node in self.nodes())
 
     def dot_output(self):
         c1, c2 = sorted(self.data, key=lambda x: x[1])
@@ -35,8 +38,8 @@ class Edge:
 
 
 class Node:
-    names = {'system': 'S', 'context': 'C', 'confounder': 'A'}
-    shape = {'system': 'S', 'context': 'C', 'confounder': 'A'}
+    names = {'system': 'S', 'context': 'C',
+             'confounder': 'A', 'exogenous': 'E'}
 
     def __init__(self, id, type):
         self.id = id
@@ -53,17 +56,11 @@ class Node:
     def __str__(self):
         return self.name
 
-    def is_system_variable(self):
-        return self.type == 'system'
-
-    def is_context_variable(self):
-        return self.type == 'context'
-
-    def is_confounder(self):
-        return self.type == 'confounder'
+    def has_type(self, type):
+        return self.type == type
 
     def adjacent_nodes(self):
-        nodes = {}
+        nodes = set()
         for edge in self.edges:
             nodes = nodes.union({node for node in edge.nodes()})
         return nodes.difference({self})
@@ -72,9 +69,9 @@ class Node:
         return len(self.edges)
 
     def dot_output(self):
-        if self.is_system_variable():
+        if self.has_type('system'):
             return f'{self.name}[label="{self.name}"];\n'
-        elif self.is_context_variable():
+        elif self.has_type('context'):
             return f'{self.name}[label="{self.name}", shape=rectangle];\n'
         else:
             return '{}->{}[dir="both"];\n'.format(
@@ -87,21 +84,12 @@ class Graph:
         self.nodes = set()
         self.edges = set()
 
-    def system_variables(self):
-        return {v for v in self.nodes if v.is_system_variable()}
-
-    def context_variables(self):
-        return {v for v in self.nodes if v.is_context_variable()}
-
-    def confounders(self):
-        return {v for v in self.nodes if v.is_confounder()}
-
-    def system_variable_of_lowest_order(self):
-        return sorted(self.system_variables(), key=lambda x: x.order())[0]
+    def nodes_of_type(self, type):
+        return {v for v in self.nodes if v.has_type(type)}
 
     def open_edges(self):
         edges = set()
-        for node1, node2 in combinations(self.system_variables(), 2):
+        for node1, node2 in combinations(self.nodes_of_type('system'), 2):
             if not self.has_edge_between(node1, node2):
                 edges.add((node1, node2))
         return edges
@@ -109,6 +97,7 @@ class Graph:
     def add_node(self, id, type):
         node = Node(id, type)
         self.nodes.add(node)
+        return node
 
     def add_edge(self, edge):
         self.edges.add(edge)
@@ -126,20 +115,10 @@ class Graph:
         edge = Edge(node1, node2, 'arrow', 'arrow')
         self.edges.add(edge)
 
-    def add_system_variable(self):
-        vars = self.system_variables()
+    def add_node_of_type(self, type):
+        vars = self.nodes_of_type(type)
         id = max([v.id for v in vars]) + 1 if vars else 0
-        self.add_node(id, 'system')
-
-    def add_context_variable(self):
-        vars = self.context_variables()
-        id = max([v.id for v in vars]) + 1 if vars else 0
-        self.add_node(id, 'context')
-
-    def add_confounder(self):
-        vars = self.confounders()
-        id = max([v.id for v in vars]) + 1 if vars else 0
-        self.add_node(id, 'confounder')
+        return self.add_node(id, type)
 
     def has_edge_between(self, node1, node2):
         for edge in self.edges:
@@ -150,9 +129,9 @@ class Graph:
     def saveDotFile(self, outdir):
         f = open('{}/sim-graph.dot'.format(outdir), 'w+')
         f.write('digraph G {\n')
-        for node in sorted(self.context_variables(), key=id):
+        for node in sorted(self.nodes_of_type('context'), key=id):
             f.write(node.dot_output())
-        for node in sorted(self.system_variables(), key=id):
+        for node in sorted(self.nodes_of_type('system'), key=id):
             f.write(node.dot_output())
         for edge in self.edges:
             f.write(edge.dot_output())
