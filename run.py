@@ -5,7 +5,7 @@ import os
 p = 5
 q = 5
 eps = 0.2
-eta = 0.5
+eta = 0.3
 N = 200
 acyclic = 0
 surgical = 0

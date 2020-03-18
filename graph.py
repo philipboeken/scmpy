@@ -19,16 +19,22 @@ class Edge:
         return isinstance(other, self.__class__) and self.data == other.data
 
     def __hash__(self):
-        return hash((data for data in self.data))
+        data = sorted(self.data, key=lambda d: d[0].name)
+        return hash(tuple(map(lambda d: d[0].name, data)))
 
-    def nodes(self):
-        return (c[0] for c in self.data)
+    def nodes(self, type=None, name=None):
+        for c in self.data:
+            if type and not c[0].type == type:
+                continue
+            if name and not c[0].name == name:
+                continue
+            yield c[0]
 
     def is_between(self, node1, node2):
         return self.nodes() == {node1, node2}
 
     def has_node_of_type(self, type):
-        return any(node.has_type(type) for node in self.nodes())
+        return len(list(self.nodes(type=type))) > 0
 
     def dot_output(self):
         c1, c2 = sorted(self.data, key=lambda x: x[1])
@@ -61,7 +67,7 @@ class Node:
 
     def is_parent_of(self, node):
         options = {
-            Edge(self, node, 'none', 'arrow'),
+            Edge(self, node, 'arrow', 'arrow'),
             Edge(self, node, 'open', 'arrow'),
             Edge(self, node, 'none', 'arrow')
         }
@@ -79,6 +85,12 @@ class Node:
     def parents(self, type=None):
         return filter(
             lambda node: node.is_parent_of(self),
+            self.adjacent_nodes(type)
+        )
+
+    def children(self, type=None):
+        return filter(
+            lambda node: self.is_parent_of(node),
             self.adjacent_nodes(type)
         )
 
@@ -101,17 +113,36 @@ class Graph:
         self.nodes = set()
         self.edges = set()
 
-    def nodes_of_type(self, type):
-        return {v for v in self.nodes if v.has_type(type)}
+    def get_nodes(self, type=None, name=None):
+        for node in self.nodes:
+            if type and not node.type == type:
+                continue
+            if name and not node.name == name:
+                continue
+            yield node
+
+    def get_edges(self, augmented=False):
+        if augmented:
+            return self.edges
+        edges = set()
+        for edge in self.edges:
+            if edge.has_node_of_type('confounder'):
+                confounder = next(iter(edge.nodes(type='confounder')))
+                edges.add(Edge(*confounder.children(), 'arrow', 'arrow'))
+            else:
+                edges.add(edge)
+        return edges
 
     def open_edges(self):
         edges = set()
-        for node1, node2 in combinations(self.nodes_of_type('system'), 2):
+        for node1, node2 in combinations(self.get_nodes(type='system'), 2):
             if not self.has_edge_between(node1, node2):
                 edges.add((node1, node2))
-        yield edges
+        return edges
 
-    def add_node(self, id, type):
+    def add_node(self, type, id=None):
+        ids = [v.id for v in self.get_nodes(type=type)]
+        id = max(ids) + 1 if ids else 0
         node = Node(id, type)
         self.nodes.add(node)
         return node
@@ -129,13 +160,9 @@ class Graph:
         self.add_edge(edge)
 
     def add_bidirected_edge(self, node1, node2):
-        edge = Edge(node1, node2, 'arrow', 'arrow')
-        self.edges.add(edge)
-
-    def add_node_of_type(self, type):
-        vars = self.nodes_of_type(type)
-        id = max(v.id for v in vars) + 1 if vars else 0
-        return self.add_node(id, type)
+        conf = self.add_node(type='confounder')
+        self.add_edge(Edge(conf, node1, 'none', 'arrow'))
+        self.add_edge(Edge(conf, node2, 'none', 'arrow'))
 
     def has_edge_between(self, node1, node2):
         for edge in self.edges:
@@ -143,13 +170,13 @@ class Graph:
                 return True
         return False
 
-    def saveDotFile(self, outdir):
-        f = open('{}/sim-graph.dot'.format(outdir), 'w+')
-        f.write('digraph G {\n')
-        for node in sorted(self.nodes_of_type('context'), key=id):
-            f.write(node.dot_output())
-        for node in sorted(self.nodes_of_type('system'), key=id):
-            f.write(node.dot_output())
-        for edge in self.edges:
-            f.write(edge.dot_output())
-        f.write('}\n')
+    def dotOutput(self, augmented=False):
+        out = 'digraph G {\n'
+        for node in sorted(self.get_nodes(type='context'), key=id):
+            out += node.dot_output()
+        for node in sorted(self.get_nodes(type='system'), key=id):
+            out += node.dot_output()
+        for edge in self.get_edges(augmented):
+            out += edge.dot_output()
+        out += '}\n'
+        return out

@@ -1,7 +1,7 @@
-import math as m
-import numpy as np
-from scm import SCM, f
+from scm import *
 from helpers import *
+import numpy as np
+import math as m
 
 
 class SCMSimulator:
@@ -14,7 +14,6 @@ class SCMSimulator:
         self.acyclic = acyclic
         self.surgical = surgical
         self.scm = SCM()
-
         np.random.seed(seed)
 
     def init_graph(self):
@@ -43,15 +42,13 @@ class SCMSimulator:
     def add_mappings(self):
         for node in self.scm.I:
             self.scm.add_map(f(
-                node,
-                node.parents('system'),
-                semilinear_f,
-                node.parents('confounder'),
-                linear_f,
-                node.parents('context'),
-                id_f,
-                node.parents('exogenous'),
-                id_f
+                codomain=node,
+                context_map=linear_f(
+                    sorted(node.parents('context'), key=id), [0, 1]),
+                system_map=nonlinear_f(sorted(node.parents('system'), key=id)),
+                exo_map=linear_f(
+                    sorted(node.parents('exogenous'), key=id)),
+                confs_map=linear_f(sorted(node.parents('confounder'), key=id))
             ))
 
     def simulate(self):
@@ -64,4 +61,10 @@ class SCMSimulator:
         self.context = np.random.normal(size=(1, self.q))
 
     def saveTo(self, outdir):
-        self.scm.saveGraph(outdir)
+        f = open(f'{outdir}/sim-graph.dot', 'w+')
+        f.write(self.scm.H.dotOutput())
+        f.close()
+
+        f = open(f'{outdir}/sim-maps.csv', 'w+')
+        f.write(self.scm.mapsOutput())
+        f.close()
