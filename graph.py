@@ -1,4 +1,3 @@
-from itertools import combinations
 from helpers import *
 
 
@@ -22,6 +21,9 @@ class Edge:
         data = sorted(self.data, key=lambda d: d[0].name)
         return hash(tuple(map(lambda d: d[0].name, data)))
 
+    def augmented(self):
+        return any(map(lambda node: node.augmented, self.nodes()))
+
     def nodes(self, type=None, name=None):
         for c in self.data:
             if type and not c[0].type == type:
@@ -44,14 +46,13 @@ class Edge:
 
 
 class Node:
-    names = {'system': 'S', 'context': 'C',
-             'confounder': 'A', 'exogenous': 'E'}
-
-    def __init__(self, id, type):
+    def __init__(self, id, type, name, shape, augmented):
         self.id = id
         self.type = type
-        self.name = self.names[type] + str(id)
+        self.name = name + str(id)
         self.edges = set()
+        self.shape = shape
+        self.augmented = augmented
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.id == other.id
@@ -71,13 +72,13 @@ class Node:
             Edge(self, node, 'open', 'arrow'),
             Edge(self, node, 'none', 'arrow')
         }
-        return len(options.intersection(self.edges)) > 0
+        return len(options & self.edges) > 0
 
     def adjacent_nodes(self, type=None):
         nodes = set()
         for edge in self.edges:
-            nodes = nodes.union({node for node in edge.nodes()})
-        nodes = nodes.difference({self})
+            nodes = nodes | {node for node in edge.nodes()}
+        nodes = nodes - {self}
         if type:
             nodes = filter(lambda node: node.has_type(type), nodes)
         return nodes
@@ -97,15 +98,14 @@ class Node:
     def order(self):
         return len(self.edges)
 
-    def dot_output(self):
-        if self.has_type('system'):
-            return f'{self.name}[label="{self.name}"];\n'
-        elif self.has_type('context'):
-            return f'{self.name}[label="{self.name}", shape=rectangle];\n'
-        else:
-            return '{}->{}[dir="both"];\n'.format(
-                *{node.name for node in self.adjacent_nodes()}
-            )
+    def dot_output(self, augmented=False):
+        if not augmented and self.augmented:
+            if len(list(self.children())) == 2:
+                return '{}->{}[dir="both"];\n'.format(
+                    *{node.name for node in self.adjacent_nodes()}
+                )
+            return ''
+        return f'{self.name}[label="{self.name}", shape={self.shape}];\n'
 
 
 class Graph:
@@ -126,24 +126,14 @@ class Graph:
             return self.edges
         edges = set()
         for edge in self.edges:
-            if edge.has_node_of_type('confounder'):
-                confounder = next(iter(edge.nodes(type='confounder')))
-                edges.add(Edge(*confounder.children(), 'arrow', 'arrow'))
-            else:
+            if not edge.augmented():
                 edges.add(edge)
         return edges
 
-    def open_edges(self):
-        edges = set()
-        for node1, node2 in combinations(self.get_nodes(type='system'), 2):
-            if not self.has_edge_between(node1, node2):
-                edges.add((node1, node2))
-        return edges
-
-    def add_node(self, type, id=None):
+    def add_node(self, type, name, shape, augmented=False, id=None):
         ids = [v.id for v in self.get_nodes(type=type)]
         id = max(ids) + 1 if ids else 0
-        node = Node(id, type)
+        node = Node(id, type, name, shape, augmented)
         self.nodes.add(node)
         return node
 
@@ -159,23 +149,16 @@ class Graph:
             edge = Edge(node1, node2, 'none', 'arrow')
         self.add_edge(edge)
 
-    def add_bidirected_edge(self, node1, node2):
-        conf = self.add_node(type='confounder')
-        self.add_edge(Edge(conf, node1, 'none', 'arrow'))
-        self.add_edge(Edge(conf, node2, 'none', 'arrow'))
-
     def has_edge_between(self, node1, node2):
         for edge in self.edges:
             if edge.is_between(node1, node2):
                 return True
         return False
 
-    def dotOutput(self, augmented=False):
+    def dot_output(self, augmented=False):
         out = 'digraph G {\n'
-        for node in sorted(self.get_nodes(type='context'), key=id):
-            out += node.dot_output()
-        for node in sorted(self.get_nodes(type='system'), key=id):
-            out += node.dot_output()
+        for node in sorted(self.get_nodes(), key=id):
+            out += node.dot_output(augmented)
         for edge in self.get_edges(augmented):
             out += edge.dot_output()
         out += '}\n'

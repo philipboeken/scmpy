@@ -1,12 +1,12 @@
-from simulator import SCMSimulator
+from simulator import *
 import shutil
 import os
 
-p = 5
-q = 5
-eps = 0.2
-eta = 0.3
-N = 200
+p = 20
+q = 10
+eps = 0.05
+eta = 0.1
+N = 1
 acyclic = 0
 surgical = 0
 seed = 1
@@ -18,6 +18,10 @@ if os.path.exists(outdir):
     shutil.rmtree(outdir)
 os.mkdir(outdir)
 
-sim = SCMSimulator(p, q, eps, eta, N, acyclic, surgical, seed)
-sim.simulate()
-sim.saveTo(outdir)
+generator = SCMGenerator(p, q, eps, eta, acyclic, surgical, seed)
+scm = generator.generate_scm()
+scm.save_to(outdir)
+
+simulator = SCMSimulator(scm)
+simulator.simulate(N)
+simulator.save_to(outdir)

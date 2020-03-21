@@ -1,6 +1,5 @@
 from itertools import combinations
 from graph import Graph
-from helpers import *
 import numpy as np
 import numpy.random as rd
 import math as m
@@ -17,7 +16,8 @@ class linear_f:
 
     def __call__(self, x):
         x = list(x)
-        return self.coef[0] + sum(x[i]*self.coef[i+1] for i in len(x))
+        ran = range(len(x))
+        return self.coef[0] + sum(x[i]*self.coef[i+1] for i in ran)
 
     def __str__(self):
         if not self.domain:
@@ -41,8 +41,8 @@ class nonlinear_f:
     def __call__(self, x):
         x = list(x)
         if self.semilinear:
-            return sum([self.f(self.a[i], x[i]) for i in len(x)])
-        return np.prod([self.f(self.a[i], x[i]) for i in len(x)])
+            return sum([self.__f(self.a[i], x[i]) for i in range(len(x))])
+        return np.prod([self.__f(self.a[i], x[i]) for i in range(len(x))])
 
     def __str__(self):
         if not self.domain:
@@ -54,22 +54,15 @@ class nonlinear_f:
             return ' + '.join(vals)
         return ' * '.join(vals)
 
-    def f(self, a, x):
+    def __f(self, a, x):
         return m.exp(-x**2) * m.sin(a * x)
 
 
 class f:
-    def __init__(
-        self,
-        codomain,
-        system_map,
-        confs_map,
-        context_map,
-        exo_map
-    ):
+    def __init__(self, codomain, system_map, latconf_map, context_map, exo_map):
         self.codomain = codomain
         self.system_map = system_map
-        self.confs_map = confs_map
+        self.latconf_map = latconf_map
         self.context_map = context_map
         self.exo_map = exo_map
 
@@ -78,53 +71,105 @@ class f:
             self.context_map,
             self.system_map,
             self.exo_map,
-            self.confs_map
+            self.latconf_map
         ]
         s = ' + '.join([str(m) for m in maps if str(m)])
         return f'{self.codomain} = {s}'
 
-    def evaluate(self, system, confounders, context, exogenous):
+    def domain(self):
+        return set(self.system_map.domain).union(
+            set(self.latconf_map.domain),
+            set(self.context_map.domain),
+            set(self.exo_map.domain)
+        )
+
+    def evaluate(self, system, latconfs, context, exogenous):
         return (self.system_map(system)
-                + self.confs_map(confounders)
+                + self.latconf_map(latconfs)
                 + self.context_map(context)
                 + self.exo_map(exogenous))
 
+    def depends_on(self, fs):
+        nodes = set(map(lambda f: f.codomain, fs))
+        return self.domain() & nodes != set()
+
 
 class SCM:
-    def __init__(self):
-        self.I = set()
-        self.K = set()
-        self.J = set()
-        self.H = Graph()
-        self.F = set()
+    options = {
+        'system': {
+            'name': 'X',
+            'shape': 'oval',
+            'augmented': False
+        },
+        'context': {
+            'name': 'C',
+            'shape': 'box',
+            'augmented': False
+        },
+        'exogenous': {
+            'name': 'E',
+            'shape': 'circle',
+            'augmented': True
+        },
+        'latconf': {
+            'name': 'L',
+            'shape': 'circle',
+            'augmented': True
+        }
+    }
 
-    def add_system_variable(self):
-        node = self.H.add_node(type='system')
-        self.I.add(node)
-        return node
+    def __init__(self, I=set(), K=set(), J=set(), L=set(), H=Graph(), F=set()):
+        self.system = I  # system
+        self.context = K  # context
+        self.exogenous = J  # exogenous (noise)
+        self.latconf = L  # latent confounders
+        self.H = H  # graph
+        self.F = F  # mappings
 
-    def add_context_variable(self):
-        node = self.H.add_node(type='context')
-        self.K.add(node)
-        return node
+    def get_options(self, type, option=None):
+        if option:
+            return self.options[type][option]
+        return self.options[type]
 
-    def add_exogenous_variable(self):
-        node = self.H.add_node(type='exogenous')
-        self.J.add(node)
+    def nodes(self, type):
+        return getattr(self, type)
+
+    def is_acyclic(self):
+        return True
+        # TODO: implement this
+
+    def add_node(self, type):
+        node = self.H.add_node(
+            type=type,
+            **self.get_options(type)
+        )
+        self.nodes(type).add(node)
         return node
 
     def add_map(self, f):
         self.F.add(f)
 
-    def connect_context_variable(self, cnode, snode=None):
-        snode = snode if snode else self.system_variable_of_lowest_order()
-        self.H.add_directed_edge(cnode, snode)
+    def connect_context_node(self, context, system=None):
+        system = system if system else self.system_node_of_lowest_order()
+        self.H.add_directed_edge(context, system)
 
-    def system_variable_of_lowest_order(self):
-        return sorted(self.I, key=lambda x: x.order())[0]
+    def system_node_of_lowest_order(self):
+        return sorted(self.system, key=lambda x: x.order())[0]
 
-    def mapsOutput(self):
-        s = ''
-        for f in sorted(self.F, key=lambda f: f.codomain.name):
-            s += f'{str(f)}\n'
-        return s
+    def maps_output(self):
+        maps = sorted(self.F, key=lambda f: f.codomain.name)
+        maps = [str(map) for map in maps]
+        return '\n'.join(maps)
+
+    def save_to(self, outdir):
+        f = open(f'{outdir}/sim-graph.dot', 'w+')
+        f.write(self.H.dot_output(augmented=False))
+        f.close()
+
+        f = open(f'{outdir}/sim-graph-augmented.dot', 'w+')
+        f.write(self.H.dot_output(augmented=True))
+        f.close()
+
+        f = open(f'{outdir}/sim-maps.csv', 'w+')
+        f.write(self.maps_output())
+        f.close()
