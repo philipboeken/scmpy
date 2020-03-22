@@ -58,12 +58,21 @@ class nonlinear_f:
 
 
 class f:
-    def __init__(self, codomain, system_map, latconf_map, context_map, exo_map):
+    def __init__(
+        self,
+        codomain,
+        system_map,
+        latconf_map,
+        context_map,
+        exo_map,
+        surgical
+    ):
         self.codomain = codomain
         self.system_map = system_map
         self.latconf_map = latconf_map
         self.context_map = context_map
         self.exo_map = exo_map
+        self.surgical = surgical
 
     def __str__(self):
         maps = [
@@ -83,6 +92,13 @@ class f:
         )
 
     def evaluate(self, system, latconfs, context, exogenous):
+        if self.surgical:
+            if self.context_map(context):
+                return self.context_map(context)
+            else:
+                return (self.system_map(system)
+                        + self.latconf_map(latconfs)
+                        + self.exo_map(exogenous))
         return (self.system_map(system)
                 + self.latconf_map(latconfs)
                 + self.context_map(context)

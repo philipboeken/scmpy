@@ -17,7 +17,6 @@ class SCMGenerator:
         self.eta = eta
         self.acyclic = acyclic
         self.surgical = surgical
-        np.random.seed(seed)
         self.scm = SCM()
 
     def init_scm(self):
@@ -48,19 +47,22 @@ class SCMGenerator:
 
     def add_mappings(self):
         for node in self.scm.system:
-            self.scm.add_map(f(
-                codomain=node,
-                context_map=linear_f(
-                    sorted(node.parents('context'), key=id),
-                    [0] + [1] * len(list(node.parents('context')))
-                ),
-                system_map=nonlinear_f(
-                    sorted(node.parents('system'), key=id)),
-                exo_map=linear_f(
-                    sorted(node.parents('exogenous'), key=id)),
-                latconf_map=linear_f(
-                    sorted(node.parents('latconf'), key=id))
-            ))
+            self.scm.add_map(
+                f(
+                    codomain=node,
+                    context_map=linear_f(
+                        sorted(node.parents('context'), key=id),
+                        [0] + [1] * len(list(node.parents('context')))
+                    ),
+                    system_map=nonlinear_f(
+                        sorted(node.parents('system'), key=id)),
+                    exo_map=linear_f(
+                        sorted(node.parents('exogenous'), key=id)),
+                    latconf_map=linear_f(
+                        sorted(node.parents('latconf'), key=id)),
+                    surgical=self.surgical
+                )
+            )
 
     def generate_scm(self):
         while True:
