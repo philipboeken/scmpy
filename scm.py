@@ -1,7 +1,7 @@
 from itertools import combinations
+import numpy.random as rd
 from graph import Graph
 import numpy as np
-import numpy.random as rd
 import math as m
 
 
@@ -11,22 +11,21 @@ class linear_f:
         if coef:
             self.coef = coef
         else:
-            self.coef = rd.uniform(0.5, 1.5, len(domain) + 1).tolist()
+            self.coef = [rd.uniform(0.5, 1.5)] if domain else [0]
+            self.coef += rd.uniform(0.5, 1.5, len(domain)).tolist()
             self.coef = list(map(lambda x: x * rd.choice([-1, 1]), self.coef))
 
     def __call__(self, x):
-        x = list(x)
-        ran = range(len(x))
-        return self.coef[0] + sum(x[i]*self.coef[i+1] for i in ran)
+        x = [1] + list(x)
+        return sum(x[i]*self.coef[i] for i in range(len(x)))
 
     def __str__(self):
         if not self.domain:
             return ''
         ran = range(len(self.domain))
         vals = [f'{self.coef[i+1]:.1f} * {self.domain[i]}' for i in ran]
-        if self.coef[0]:
-            return f'{self.coef[0]:.1f} + ' + ' + '.join(vals)
-        return ' + '.join(vals)
+        s = f'{self.coef[0]:.1f} + ' + ' + '.join(vals).replace('1.0 * ', '')
+        return s.replace('0.0 + ', '')
 
 
 class nonlinear_f:
@@ -118,13 +117,13 @@ class SCM:
         }
     }
 
-    def __init__(self, I=set(), K=set(), J=set(), L=set(), H=Graph(), F=set()):
-        self.system = I  # system
-        self.context = K  # context
-        self.exogenous = J  # exogenous (noise)
-        self.latconf = L  # latent confounders
-        self.H = H  # graph
-        self.F = F  # mappings
+    def __init__(self):
+        self.system = set()  # system
+        self.context = set()  # context
+        self.exogenous = set()  # exogenous (noise)
+        self.latconf = set()  # latent confounders
+        self.H = Graph()  # graph
+        self.F = set()  # mappings
 
     def get_options(self, type, option=None):
         if option:
@@ -135,8 +134,7 @@ class SCM:
         return getattr(self, type)
 
     def is_acyclic(self):
-        return True
-        # TODO: implement this
+        return self.H.is_acyclic('system')
 
     def add_node(self, type):
         node = self.H.add_node(

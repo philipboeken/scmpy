@@ -1,4 +1,7 @@
-from helpers import *
+from scipy.linalg import expm
+from pandas import DataFrame
+from helpers import draw
+from numpy import diag
 
 
 class Edge:
@@ -55,7 +58,7 @@ class Node:
         self.augmented = augmented
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.id == other.id
+        return isinstance(other, self.__class__) and self.name == other.name
 
     def __hash__(self):
         return hash(self.name)
@@ -129,6 +132,26 @@ class Graph:
             if not edge.augmented():
                 edges.add(edge)
         return edges
+
+    def names(self, type=None):
+        return sorted([node.name for node in self.get_nodes(type=type)])
+
+    def adjacency_matrix(self, type):
+        matrix = DataFrame(
+            0,
+            index=list(self.get_nodes(type)),
+            columns=list(self.get_nodes(type))
+        )
+        for node in self.get_nodes(type):
+            for child in node.children(type=type):
+                matrix[node][child] = 1
+            for parent in node.parents(type=type):
+                matrix[parent][node] = 1
+        return matrix
+
+    def is_acyclic(self, type):
+        exp = expm(self.adjacency_matrix(type=type).to_numpy())
+        return abs(sum(diag(exp))) - len(list(self.get_nodes(type=type))) < 1e-10
 
     def add_node(self, type, name, shape, augmented=False, id=None):
         ids = [v.id for v in self.get_nodes(type=type)]

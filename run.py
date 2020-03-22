@@ -1,14 +1,14 @@
-from simulator import *
+from simulator import SCMGenerator, SCMSimulator
 import shutil
 import os
 
-p = 20
-q = 10
+p = 3
+q = 4
 eps = 0.05
 eta = 0.1
-N = 1
-acyclic = 0
-surgical = 0
+N = 10
+acyclic = True
+surgical = False
 seed = 1
 
 outdir = f"./out/p={p}_q={q}_eps={eps}_eta={eta}_N={N}" \

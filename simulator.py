@@ -1,10 +1,10 @@
+from scm import SCM, linear_f, nonlinear_f, f
 from itertools import combinations
 from scipy.stats import bernoulli
 from pandas import DataFrame
 import numpy.random as rd
-from helpers import *
+from helpers import draw
 import numpy as np
-from scm import *
 import math as m
 import random
 
@@ -20,7 +20,8 @@ class SCMGenerator:
         np.random.seed(seed)
         self.scm = SCM()
 
-    def init_graph(self):
+    def init_scm(self):
+        self.scm.__init__()
         for _ in range(self.p):
             system = self.scm.add_node('system')
             exo = self.scm.add_node('exogenous')
@@ -50,7 +51,9 @@ class SCMGenerator:
             self.scm.add_map(f(
                 codomain=node,
                 context_map=linear_f(
-                    sorted(node.parents('context'), key=id), [0, 1]),
+                    sorted(node.parents('context'), key=id),
+                    [0] + [1] * len(list(node.parents('context')))
+                ),
                 system_map=nonlinear_f(
                     sorted(node.parents('system'), key=id)),
                 exo_map=linear_f(
@@ -60,8 +63,11 @@ class SCMGenerator:
             ))
 
     def generate_scm(self):
-        self.init_graph()
-        self.add_directed_edges()
+        while True:
+            self.init_scm()
+            self.add_directed_edges()
+            if self.acyclic == self.scm.is_acyclic():
+                break
         self.add_latent_confs()
         self.add_mappings()
         return self.scm
@@ -107,9 +113,6 @@ class SCMSimulator:
             return sorted(randvars, key=lambda rv: rv.node.name)
         return randvars
 
-    def names(self):
-        return [rv.node.name for rv in self.randvars(sort=True)]
-
     def state(self):
         return [rv.value for rv in self.randvars(sort=True)]
 
@@ -121,7 +124,7 @@ class SCMSimulator:
             sample = self.sample(N)
             self.data = self.data.append(sample, ignore_index=True)
             context.value = 0
-        self.data.columns = self.names()
+        self.data.columns = self.scm.H.names()
 
     def sample(self, N):
         sample = []
@@ -132,7 +135,7 @@ class SCMSimulator:
                 SCMSolver.iterate(self)
             else:
                 self.randomize_state(target='system')
-                self.scm.solve(self)
+                SCMSolver.solve(self)
             sample += [self.state()]
         return sample
 
@@ -157,15 +160,17 @@ class SCMSolver:
     @staticmethod
     def apply(scm, f):
         target = next(filter(
-            lambda rv: rv.node == f.codomain,
+            lambda rv: rv.node.name == f.codomain.name,
             scm.randvars()
         ))
-        system = [rv.value for rv in scm.randvars(nodes=f.system_map.domain)]
+        system = [rv.value for rv in scm.randvars(
+            nodes=f.system_map.domain, sort=True)]
         latconfs = [rv.value for rv in scm.randvars(
-            nodes=f.latconf_map.domain)]
+            nodes=f.latconf_map.domain, sort=True)]
         context = [rv.value for rv in scm.randvars(
-            nodes=f.context_map.domain)]
-        exogenous = [rv.value for rv in scm.randvars(nodes=f.exo_map.domain)]
+            nodes=f.context_map.domain, sort=True)]
+        exogenous = [rv.value for rv in scm.randvars(
+            nodes=f.exo_map.domain, sort=True)]
         target.value = f.evaluate(system, latconfs, context, exogenous)
 
     @staticmethod
