@@ -11,7 +11,6 @@ N = 10  # Number of samples drawn from each context
 acyclic = True  # Whether the graph is acyclic
 seed = 1
 surgical = False  # True: perfect interventions | False: mechanism changes
-# TODO: perfect interventions not yet implemented
 
 outdir = f"./out/p={p}_q={q}_eps={eps}_eta={eta}_N={N}" \
          + f"_acyclic={acyclic}_surgical={surgical}_seed={seed}"
