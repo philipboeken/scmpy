@@ -1,6 +1,5 @@
 from sklearn.metrics import roc_curve, auc
 from itertools import combinations, product, permutations
-from independence_tests import discr_cont_indep_test
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 import numpy as np
@@ -87,9 +86,12 @@ class SCMEstimator:
     def get_data(self, context=None, obs=True):
         data = self.data.iloc[0:0].copy()
         if context:
-            data = data.append(self.data.loc[self.data[context] == 1])
+            data = data.append(
+                self.data.loc[self.data[context] == 1],
+                ignore_index=True
+            )
         if obs:
             conditions = [self.data[C] == 0 for C in self.nodes('context')]
             observational = self.data.loc[np.logical_and.reduce(conditions)]
-            data = data.append(observational)
+            data = data.append(observational, ignore_index=True)
         return data
