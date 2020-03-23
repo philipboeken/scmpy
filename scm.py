@@ -29,9 +29,9 @@ class linear_f:
 
 
 class nonlinear_f:
-    def __init__(self, domain, a=[], semilinear=True):
+    def __init__(self, domain, a=[], additive=True):
         self.domain = domain
-        self.semilinear = semilinear
+        self.additive = additive
         if a:
             self.a = a
         else:
@@ -39,7 +39,7 @@ class nonlinear_f:
 
     def __call__(self, x):
         x = list(x)
-        if self.semilinear:
+        if self.additive:
             return sum([self.__f(self.a[i], x[i]) for i in range(len(x))])
         return np.prod([self.__f(self.a[i], x[i]) for i in range(len(x))])
 
@@ -49,7 +49,7 @@ class nonlinear_f:
         ran = range(len(self.domain))
         vals = [
             f'e^(-{self.domain[i]}^2) * sin({self.a[i]:.1f}*{self.domain[i]})' for i in ran]
-        if self.semilinear:
+        if self.additive:
             return ' + '.join(vals)
         return ' * '.join(vals)
 

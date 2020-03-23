@@ -10,13 +10,14 @@ import random
 
 
 class SCMGenerator:
-    def __init__(self, p, q, eps, eta, acyclic, surgical, seed):
+    def __init__(self, p, q, eps, eta, acyclic, surgical, rel):
         self.p = p
         self.q = q
         self.eps = eps
         self.eta = eta
         self.acyclic = acyclic
         self.surgical = surgical
+        self.rel = rel
         self.scm = SCM()
 
     def init_scm(self):
@@ -47,22 +48,35 @@ class SCMGenerator:
 
     def add_mappings(self):
         for node in self.scm.system:
-            self.scm.add_map(
-                f(
-                    codomain=node,
-                    context_map=linear_f(
-                        sorted(node.parents('context'), key=id),
-                        [0] + [1] * len(list(node.parents('context')))
-                    ),
-                    system_map=nonlinear_f(
-                        sorted(node.parents('system'), key=id)),
-                    exo_map=linear_f(
-                        sorted(node.parents('exogenous'), key=id)),
-                    latconf_map=linear_f(
-                        sorted(node.parents('latconf'), key=id)),
-                    surgical=self.surgical
-                )
+            context_map = linear_f(
+                domain=sorted(node.parents('context'), key=id),
+                coef=[0] + [1] * len(list(node.parents('context')))
             )
+
+            if self.rel == 'linear':
+                system_map = linear_f(sorted(node.parents('system'), key=id))
+            elif self.rel == 'additive':
+                system_map = nonlinear_f(
+                    domain=sorted(node.parents('system'), key=id),
+                    additive=True
+                )
+            else:
+                system_map = nonlinear_f(
+                    domain=sorted(node.parents('system'), key=id),
+                    additive=False
+                )
+
+            exo_map = linear_f(sorted(node.parents('exogenous'), key=id))
+            latconf_map = linear_f(sorted(node.parents('latconf'), key=id))
+
+            self.scm.add_map(f(
+                codomain=node,
+                context_map=context_map,
+                system_map=system_map,
+                exo_map=exo_map,
+                latconf_map=latconf_map,
+                surgical=self.surgical
+            ))
 
     def generate_scm(self):
         while True:
