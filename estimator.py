@@ -45,17 +45,24 @@ class SCMEstimator:
                     continue
                 data = self.get_data(obs=True, context=C)
                 pval = c_indep_test(data[C], data[Y], data[X])
-                print(f'<{C},{X},{Y}>: {pval > 0.02} with p-value {pval:.4f}')
                 if pval >= self.alpha:
                     self.arel.at[X, Y] = 1
-                    self.conf.at[X, Y] = max(self.conf.at[X, Y], 1/pval)
-        self.conf = self.conf.div(self.conf.max() + 1e-10)
+                    self.conf.at[X, Y] = max(
+                        self.conf.at[X, Y],
+                        -np.log(p_dep.at[C, X])
+                    )
         self.depcies = p_dep.applymap(lambda x: 1 if x < self.alpha else 0)
         self.last_alg = 'lcd'
 
     def save_to(self, outdir):
-        self.depcies.to_csv(f'{outdir}/{self.last_alg}-dependencies.csv', sep='\t')
-        self.conf.to_csv(f'{outdir}/{self.last_alg}-arel-confidence.csv', sep='\t')
+        self.depcies.to_csv(
+            f'{outdir}/{self.last_alg}-dependencies.csv',
+            sep='\t'
+        )
+        self.conf.to_csv(
+            f'{outdir}/{self.last_alg}-arel-confidence.csv',
+            sep='\t'
+        )
         self.arel.to_csv(f'{outdir}/{self.last_alg}-arel.csv', sep='\t')
 
     def plot_roc(self, labels, outdir):
