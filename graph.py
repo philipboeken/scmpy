@@ -137,18 +137,26 @@ class Graph:
                 edges.add(edge)
         return edges
 
-    def adjacency_matrix(self, type):
+    def adjacency_matrix(self, type, sort=False):
         matrix = DataFrame(
             0,
-            index=self.get_nodes(type),
-            columns=self.get_nodes(type)
+            index=self.get_nodes(type, sort=sort),
+            columns=self.get_nodes(type, sort=sort)
         )
         for node in self.get_nodes(type):
             for child in node.children(type=type):
-                matrix[node][child] = 1
+                matrix.at[node, child] = 1
             for parent in node.parents(type=type):
-                matrix[parent][node] = 1
+                matrix.at[parent, node] = 1
         return matrix
+
+    def ancestral_matrix(self, type):
+        adj_mat = self.adjacency_matrix(type=type, sort=True)
+        anc_mat = adj_mat.copy()
+        n = len(self.get_nodes(type=type))
+        for i in range(n):
+            anc_mat = anc_mat.add(anc_mat.dot(adj_mat))
+        return anc_mat.applymap(lambda val: min(1, val))
 
     def is_acyclic(self, type):
         exp = expm(self.adjacency_matrix(type=type).to_numpy())

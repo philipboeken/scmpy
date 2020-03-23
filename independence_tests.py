@@ -49,7 +49,7 @@ def corr_test(X, Y):
 
 
 def discr_cont_indep_test(C, X):
-    # H0: X independent of C <=> X|C==1 !~ X|C==0
+    # H0: X independent of C <=> X|C=1 !~ X|C=0
     data = pd.concat([C, X], axis=1)
     X1 = data.loc[data[C.name] == 0][X.name]
     X2 = data.loc[data[C.name] == 1][X.name]

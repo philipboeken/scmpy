@@ -187,6 +187,10 @@ class SCM:
         f.write(self.H.dot_output(augmented=True))
         f.close()
 
-        f = open(f'{outdir}/sim-maps.csv', 'w+')
+        f = open(f'{outdir}/sim-maps.txt', 'w+')
         f.write(self.maps_output())
         f.close()
+
+        self.H.adjacency_matrix('system', sort=True).to_csv(f'{outdir}/sim-edge.csv', sep='\t')
+
+        self.H.ancestral_matrix('system').to_csv(f'{outdir}/sim-arel.csv', sep='\t')
