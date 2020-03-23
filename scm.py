@@ -146,8 +146,11 @@ class SCM:
             return self.options[type][option]
         return self.options[type]
 
-    def nodes(self, type):
-        return getattr(self, type)
+    def nodes(self, type, sort=False):
+        nodes = getattr(self, type)
+        if sort:
+            return sorted(nodes, key=lambda node: node.name)
+        return nodes
 
     def is_acyclic(self):
         return self.H.is_acyclic('system')
@@ -168,7 +171,7 @@ class SCM:
         self.H.add_directed_edge(context, system)
 
     def system_node_of_lowest_order(self):
-        return sorted(self.system, key=lambda x: x.order())[0]
+        return sorted(self.system, key=lambda x: (x.order(), x.name))[0]
 
     def maps_output(self):
         maps = sorted(self.F, key=lambda f: f.codomain.name)

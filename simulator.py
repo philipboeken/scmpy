@@ -6,7 +6,6 @@ import numpy.random as rd
 from helpers import draw
 import numpy as np
 import math as m
-import random
 
 
 class SCMGenerator:
@@ -31,23 +30,25 @@ class SCMGenerator:
         self.connect_context_nodes()
 
     def connect_context_nodes(self):
-        for context_var in self.scm.context:
+        for context_var in self.scm.nodes('context', sort=True):
             self.scm.connect_context_node(context_var)
 
     def add_latent_confs(self):
-        for node1, node2 in combinations(self.scm.system, 2):
+        combs = combinations(self.scm.nodes('system', sort=True), 2)
+        for node1, node2 in combs:
             if draw(self.eps):
                 conf = self.scm.add_node('latconf')
                 self.scm.H.add_directed_edge(conf, node1)
                 self.scm.H.add_directed_edge(conf, node2)
 
     def add_directed_edges(self):
-        for node1, node2 in combinations(self.scm.system, 2):
+        combs = combinations(self.scm.nodes('system', sort=True), 2)
+        for node1, node2 in combs:
             if draw(self.eta) and not self.scm.H.has_edge_between(node1, node2):
                 self.scm.H.add_directed_edge(node1, node2, random=True)
 
     def add_mappings(self):
-        for node in self.scm.system:
+        for node in self.scm.nodes('system', sort=True):
             context_map = linear_f(
                 domain=sorted(node.parents('context'), key=id),
                 coef=[0] + [1] * len(list(node.parents('context')))
@@ -140,7 +141,7 @@ class SCMSimulator:
             sample = self.sample(N)
             self.data = self.data.append(sample, ignore_index=True)
             context.value = 0
-        self.data.columns = self.scm.H.names()
+        self.data.columns = self.scm.H.get_nodes(sort=True)
 
     def sample(self, N):
         sample = []
@@ -156,7 +157,7 @@ class SCMSimulator:
         return sample
 
     def randomize_state(self, target):
-        for randvar in self.randvars(target):
+        for randvar in self.randvars(target, sort=True):
             randvar.draw()
 
     def save_to(self, outdir):
@@ -166,12 +167,12 @@ class SCMSimulator:
 class SCMSolver:
     @staticmethod
     def iterate(scm):
-        updates = scm.scm.F.copy()
+        updates = sorted(scm.scm.F.copy(), key=lambda f: f.codomain.name)
         while len(updates) > 0:
-            f = random.sample(updates, 1)[0]
+            f = rd.choice(updates)
             if not f.depends_on(updates):
                 SCMSolver.apply(scm, f)
-                updates.discard(f)
+                updates.remove(f)
 
     @staticmethod
     def apply(scm, f):

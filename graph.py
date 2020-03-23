@@ -116,13 +116,15 @@ class Graph:
         self.nodes = set()
         self.edges = set()
 
-    def get_nodes(self, type=None, name=None):
-        for node in self.nodes:
-            if type and not node.type == type:
-                continue
-            if name and not node.name == name:
-                continue
-            yield node
+    def get_nodes(self, type=None, name=None, sort=False):
+        nodes = self.nodes
+        if type:
+            nodes = [node for node in nodes if node.type == type]
+        if name:
+            nodes = [node for node in nodes if node.name == name]
+        if sort:
+            return sorted(nodes, key=lambda node: node.name)
+        return nodes
 
     def get_edges(self, augmented=False):
         if augmented:
@@ -133,14 +135,11 @@ class Graph:
                 edges.add(edge)
         return edges
 
-    def names(self, type=None):
-        return sorted([node.name for node in self.get_nodes(type=type)])
-
     def adjacency_matrix(self, type):
         matrix = DataFrame(
             0,
-            index=list(self.get_nodes(type)),
-            columns=list(self.get_nodes(type))
+            index=self.get_nodes(type),
+            columns=self.get_nodes(type)
         )
         for node in self.get_nodes(type):
             for child in node.children(type=type):
@@ -151,7 +150,7 @@ class Graph:
 
     def is_acyclic(self, type):
         exp = expm(self.adjacency_matrix(type=type).to_numpy())
-        return abs(sum(diag(exp))) - len(list(self.get_nodes(type=type))) < 1e-10
+        return abs(sum(diag(exp))) - len(self.get_nodes(type=type)) < 1e-10
 
     def add_node(self, type, name, shape, augmented=False, id=None):
         ids = [v.id for v in self.get_nodes(type=type)]
@@ -180,7 +179,7 @@ class Graph:
 
     def dot_output(self, augmented=False):
         out = 'digraph G {\n'
-        for node in sorted(self.get_nodes(), key=id):
+        for node in self.get_nodes(sort=True):
             out += node.dot_output(augmented)
         for edge in self.get_edges(augmented):
             out += edge.dot_output()

@@ -1,10 +1,9 @@
 import numpy as np
-import random
 
 
 def set_seed(seed):
-    np.random.seed(seed)
-    random.seed(seed)
+    if seed:
+        np.random.seed(seed)
 
 
 def draw(p):
