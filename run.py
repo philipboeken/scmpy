@@ -1,18 +1,28 @@
+from independence_tests import pcorr_test, corr_test
 from simulator import SCMGenerator, SCMSimulator
-# from estimator import SCMEstimator
-from helpers import set_seed
+from estimator import SCMEstimator
+from helpers import set_seed, draw
 import shutil
 import os
 
-p = 3  # The number of system variables
-q = 2  # The number of context variables
-eps = 1  # Probability of drawing a latent confounder
-eta = 0.1  # Probability of drawing a directed edge
-acyclic = True  # Whether the graph is acyclic
-rel = 'linear'  # Relation between system variables: 'linear' | 'additive' | 'nonlinear'
-surgical = False  # True: perfect interventions | False: mechanism changes
-N = 10  # Number of samples drawn from each context
-seed = 1
+# The number of system variables
+p = 4
+# The number of context variables
+q = 3
+# Probability of drawing a latent confounder
+eps = 0.05
+# Probability of drawing a directed edge
+eta = 0.1
+# Whether the graph is acyclic
+acyclic = True
+# Relation between system variables: 'linear' | 'additive' | 'nonlinear'
+rel = 'additive'
+# Type of interventions: True: perfect interventions | False: mechanism changes
+surgical = False
+# Number of samples drawn from each context
+N = 100
+# The seed for the random number generators
+seed = 3
 
 outdir = f"./out/p={p}_q={q}_eps={eps}_eta={eta}_acyclic={acyclic}" \
          + f"_rel={rel}_surgical={surgical}_N={N}_seed={seed}"
@@ -31,5 +41,7 @@ simulator = SCMSimulator(scm)
 simulator.simulate(N)
 simulator.save_to(outdir)
 
-# data = simulator.data
-# estimator = SCMEstimator(data=data, system=scm.system, context=scm.context)
+data = simulator.data
+estimator = SCMEstimator(data=data, system=scm.system, context=scm.context)
+estimator.lcd(corr_test, pcorr_test)
+estimator.save_to(outdir)

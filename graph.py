@@ -77,13 +77,15 @@ class Node:
         }
         return len(options & self.edges) > 0
 
-    def adjacent_nodes(self, type=None):
+    def adjacent_nodes(self, type=None, sort=False):
         nodes = set()
         for edge in self.edges:
             nodes = nodes | {node for node in edge.nodes()}
         nodes = nodes - {self}
         if type:
             nodes = filter(lambda node: node.has_type(type), nodes)
+        if sort:
+            return sorted(nodes, key=lambda x: x.name)
         return nodes
 
     def parents(self, type=None):
@@ -105,7 +107,7 @@ class Node:
         if not augmented and self.augmented:
             if len(list(self.children())) == 2:
                 return '{}->{}[dir="both"];\n'.format(
-                    *{node.name for node in self.adjacent_nodes()}
+                    *{node.name for node in self.adjacent_nodes(sort=True)}
                 )
             return ''
         return f'{self.name}[label="{self.name}", shape={self.shape}];\n'
