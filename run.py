@@ -20,13 +20,13 @@ rel = 'additive'
 # Type of interventions: True: perfect interventions | False: mechanism changes
 surgical = True
 # Number of samples drawn from each context
-N = 100
+N = 200
 # The seed for the random number generators
 seed = 4
 # Independence test
-ind_test = gam_r_ind_test
+ind_test = gam
 # Conditional independece test
-cond_ind_test = gam_cond_ind_test
+cond_ind_test = gam_gcm
 
 outdir = f'./out/p={p}_q={q}_eps={eps}_eta={eta}_acyclic={acyclic}' \
          + f'_rel={rel}_surgical={surgical}_N={N}_seed={seed}' \

@@ -1,6 +1,6 @@
 from itertools import combinations, product, permutations
-from independence_tests import corr_ind_test
 from sklearn.metrics import roc_curve, auc
+from independence_tests import corr
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 import numpy as np
@@ -35,7 +35,7 @@ class SCMEstimator:
             p_dep.at[Y, X] = p_dep.at[X, Y]
         for C, X in product(self.nodes('context'), self.nodes('system')):
             data = self.get_data(obs=True, context=C)
-            p_dep.at[C, X] = corr_ind_test(data[C], data[X])
+            p_dep.at[C, X] = corr(data[C], data[X])
 
         for X, Y in permutations(self.nodes('system'), 2):
             if p_dep.at[X, Y] > self.alpha:
