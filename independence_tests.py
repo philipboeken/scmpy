@@ -1,3 +1,5 @@
+from rpy2.robjects import pandas2ri, globalenv
+from rpy2.robjects.packages import importr
 from sklearn.kernel_ridge import KernelRidge
 from pygam import LinearGAM, LogisticGAM, s
 from scipy.stats import ks_2samp, kruskal
@@ -38,6 +40,22 @@ def pred_gam(Y, X):
     return gam.predict(X)
 
 
+def pred_gam_r(Y, X):
+    mgcv = importr('mgcv')
+    base = importr('base')
+    stats = importr('stats')
+    pandas2ri.activate()
+    globalenv['Y'] = Y
+    globalenv['X'] = X
+    discrete = len(Y.unique()) < len(Y) / 2
+    if discrete:
+        gam = mgcv.gam(stats.formula('Y ~ s(X)'),
+                       family=base.as_symbol('binomial'))
+    else:
+        gam = mgcv.gam(stats.formula('Y ~ s(X)'))
+    return stats.predict(gam, base.as_data_frame(base.as_symbol('X')))
+
+
 def rho(X, Y):
     return np.corrcoef(X, Y)[0, 1]
 
@@ -48,7 +66,7 @@ def partial_correlation(X, Y, Z):
     return n/d
 
 
-def rho_ind_test(X, Y):
+def corr_ind_test(X, Y):
     # H0: X independent of Y <=> r = 0 <=> z = 0
     r = rho(X, Y)
     z = (1/2) * np.log((1+r) / (1-r))
@@ -77,11 +95,30 @@ def gam_ind_test(X, Y):
     else:
         gam1 = LinearGAM(s(0)).fit(X, Y)
         gam2 = LinearGAM(s(0)).fit(Y, X)
-        return min(
-            gam1._compute_p_value(0),
-            gam2._compute_p_value(0)
-        )
+        return min(gam1._compute_p_value(0),
+                   gam2._compute_p_value(0))
     return gam._compute_p_value(0)
+
+
+def gam_r_ind_test(X, Y):
+    # H0: X independent of Y
+    X_discrete = len(X.unique()) < len(X) / 2
+    mgcv = importr('mgcv')
+    base = importr('base')
+    stats = importr('stats')
+    pandas2ri.activate()
+    globalenv['X'] = X
+    globalenv['Y'] = Y
+    if X_discrete:
+        gam = mgcv.gam(stats.formula('X ~ s(Y)'),
+                       family=base.as_symbol('binomial'))
+        return base.summary(gam).rx2('s.pv')[0]
+    else:
+        gam1 = mgcv.gam(stats.formula('Y~s(X)'))
+        gam2 = mgcv.gam(stats.formula('X~s(Y)'))
+        pandas2ri.deactivate()
+        return min(base.summary(gam1).rx2('s.pv')[0],
+                   base.summary(gam2).rx2('s.pv')[0])
 
 
 def pcorr_cond_ind_test(X, Y, Z):
@@ -94,7 +131,7 @@ def pcorr_cond_ind_test(X, Y, Z):
 
 def gam_cond_ind_test(X, Y, Z):
     # H0: X independent of Y given Z <=> GCM: T ~ N(0,1)
-    f_hat, g_hat = pred_gam(X, Z), pred_gam(Y, Z)
+    f_hat, g_hat = pred_gam_r(X, Z), pred_gam_r(Y, Z)
     R = [(X[i] - f_hat[i]) * (Y[i] - g_hat[i]) for i in range(len(X))]
     R2 = np.square(R)
     T = np.sqrt(len(X)) * np.average(R) / \

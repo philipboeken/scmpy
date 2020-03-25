@@ -5,13 +5,27 @@ import numpy as np
 import math as m
 
 
+class id_f:
+    def __init__(self, domain):
+        self.domain = domain
+
+    def __call__(self, x):
+        return 0.3 * sum(list(x))
+
+    def __str__(self):
+        if not self.domain:
+            return ''
+        vals = [f'{self.domain[i]}' for i in range(len(self.domain))]
+        return ' + '.join(vals)
+
+
 class linear_f:
-    def __init__(self, domain, coef=[]):
+    def __init__(self, domain, coef=[], bias=True):
         self.domain = domain
         if coef:
             self.coef = coef
         else:
-            self.coef = [rd.uniform(0.5, 1.5)] if domain else [0]
+            self.coef = [rd.uniform(0.5, 1.5)] if domain and bias else [0]
             self.coef += rd.uniform(0.5, 1.5, len(domain)).tolist()
             self.coef = list(map(lambda x: x * rd.choice([-1, 1]), self.coef))
 
@@ -54,7 +68,8 @@ class nonlinear_f:
         return ' * '.join(vals)
 
     def __f(self, a, x):
-        return m.exp(-x**2) * m.sin(a * x)
+        # return m.exp(-x**2) * m.sin(a * x)
+        return m.sin(2*x)
 
 
 class f:

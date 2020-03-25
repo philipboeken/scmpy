@@ -1,4 +1,4 @@
-from scm import SCM, linear_f, nonlinear_f, f
+from scm import SCM, linear_f, nonlinear_f, f, id_f
 from itertools import combinations
 from scipy.stats import bernoulli
 from pandas import DataFrame
@@ -67,8 +67,8 @@ class SCMGenerator:
                     additive=False
                 )
 
-            exo_map = linear_f(sorted(node.parents('exogenous'), key=id))
-            latconf_map = linear_f(sorted(node.parents('latconf'), key=id))
+            exo_map = id_f(sorted(node.parents('exogenous'), key=id))
+            latconf_map = id_f(sorted(node.parents('latconf'), key=id))
 
             self.scm.add_map(f(
                 codomain=node,

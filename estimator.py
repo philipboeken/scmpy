@@ -1,5 +1,6 @@
-from sklearn.metrics import roc_curve, auc
 from itertools import combinations, product, permutations
+from independence_tests import corr_ind_test
+from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 import numpy as np
@@ -34,22 +35,21 @@ class SCMEstimator:
             p_dep.at[Y, X] = p_dep.at[X, Y]
         for C, X in product(self.nodes('context'), self.nodes('system')):
             data = self.get_data(obs=True, context=C)
-            p_dep.at[C, X] = indep_test(data[C], data[X])
+            p_dep.at[C, X] = corr_ind_test(data[C], data[X])
 
         for X, Y in permutations(self.nodes('system'), 2):
             if p_dep.at[X, Y] > self.alpha:
                 continue
             for C in self.nodes('context'):
-                if p_dep.at[C, X] > self.alpha:
+                if p_dep.at[C, X] > self.alpha or not C.is_parent_of(X):
                     continue
                 data = self.get_data(obs=True, context=C)
                 pval = c_indep_test(data[C], data[Y], data[X])
-                if pval >= self.alpha:
-                    self.arel.at[X, Y] = 1
-                    self.conf.at[X, Y] = max(
-                        self.conf.at[X, Y],
-                        -np.log(p_dep.at[C, X])
-                    )
+                if pval < self.alpha:
+                    continue
+                self.arel.at[X, Y] = 1
+                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
+                # self.conf.at[X, Y] = max(self.conf.at[X, Y], -np.log(p_dep.at[C, X]))
         self.depcies = p_dep.applymap(lambda x: 1 if x < self.alpha else 0)
         self.last_alg = 'lcd'
 
@@ -58,10 +58,7 @@ class SCMEstimator:
             f'{outdir}/{self.last_alg}-dependencies.csv',
             sep='\t'
         )
-        self.conf.to_csv(
-            f'{outdir}/{self.last_alg}-arel-confidence.csv',
-            sep='\t'
-        )
+        self.conf.to_csv(f'{outdir}/{self.last_alg}-arel-confidence.csv')
         self.arel.to_csv(f'{outdir}/{self.last_alg}-arel.csv', sep='\t')
 
     def plot_roc(self, labels, outdir):
@@ -84,6 +81,8 @@ class SCMEstimator:
         plt.savefig(f'{outdir}/{self.last_alg}-roc.png', format='png')
 
     def get_data(self, context=None, obs=True):
+        if not context and not obs:
+            return self.data
         data = self.data.iloc[0:0].copy()
         if context:
             data = data.append(

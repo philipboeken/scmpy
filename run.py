@@ -8,9 +8,9 @@ import os
 # The number of system variables
 p = 4
 # The number of context variables
-q = 4
+q = 3
 # Probability of drawing a latent confounder
-eps = 0.1
+eps = 0.0
 # Probability of drawing a directed edge
 eta = 0.5
 # Whether the graph is acyclic
@@ -20,11 +20,11 @@ rel = 'additive'
 # Type of interventions: True: perfect interventions | False: mechanism changes
 surgical = True
 # Number of samples drawn from each context
-N = 500
+N = 100
 # The seed for the random number generators
 seed = 4
 # Independence test
-ind_test = rho_ind_test
+ind_test = gam_r_ind_test
 # Conditional independece test
 cond_ind_test = gam_cond_ind_test
 
@@ -51,7 +51,7 @@ estimator = SCMEstimator(
     data=data,
     system=scm.system,
     context=scm.context,
-    alpha=0.02
+    alpha=0.01
 )
 estimator.lcd(ind_test, cond_ind_test)
 estimator.save_to(outdir)

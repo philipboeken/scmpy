@@ -89,16 +89,12 @@ class Node:
         return nodes
 
     def parents(self, type=None):
-        return filter(
-            lambda node: node.is_parent_of(self),
-            self.adjacent_nodes(type)
-        )
+        return filter(lambda node: node.is_parent_of(self),
+                      self.adjacent_nodes(type))
 
     def children(self, type=None):
-        return filter(
-            lambda node: self.is_parent_of(node),
-            self.adjacent_nodes(type)
-        )
+        return filter(lambda node: self.is_parent_of(node),
+                      self.adjacent_nodes(type))
 
     def order(self):
         return len(self.edges)
