@@ -66,6 +66,16 @@ def partial_correlation(X, Y, Z):
     return n/d
 
 
+def get_gam(X, Y):
+    globalenv['Y'] = Y
+    globalenv['X'] = X
+    return mgcv.gam(rstats.formula('Y ~ s(X)'))
+
+
+def pval_gam(gam):
+    return base.summary(gam).rx2('s.pv')[0]
+
+
 def corr(X, Y):
     # H0: X independent of Y <=> r = 0 <=> z = 0
     r = rho(X, Y)
@@ -125,31 +135,32 @@ def pcorr(X, Y, Z):
     return 2*stats.norm.sf(F)
 
 
-def gam_gcm(X, Y, Z):
-    # H0: X independent of Y given Z <=> GCM: T ~ N(0,1)
-    f_hat, g_hat = pred_gam(X, Z), pred_gam(Y, Z)
+def gcm(X, Y, f_hat, g_hat):
     R = [(X[i] - f_hat[i]) * (Y[i] - g_hat[i]) for i in range(len(X))]
     R2 = np.square(R)
     T = np.sqrt(len(X)) * np.average(R) / \
         np.sqrt(np.average(R2) - np.average(R)**2)
     return 2*stats.norm.sf(abs(T))
+
+
+def get_pred_from_gam(gam, X):
+    globalenv['X'] = X
+    return rstats.predict(gam, base.as_data_frame(base.as_symbol('X')))
+
+
+def gam_gcm(X, Y, Z):
+    # H0: X independent of Y given Z <=> GCM: T ~ N(0,1)
+    f_hat, g_hat = pred_gam(X, Z), pred_gam(Y, Z)
+    return gcm(X, Y, f_hat, g_hat)
 
 
 def xgb_gcm(X, Y, Z):
     # H0: X independent of Y given Z <=> GCM: T ~ N(0,1)
     f_hat, g_hat = pred_xgboost(X, Z), pred_xgboost(Y, Z)
-    R = [(X[i] - f_hat[i]) * (Y[i] - g_hat[i]) for i in range(len(X))]
-    R2 = np.square(R)
-    T = np.sqrt(len(X)) * np.average(R) / \
-        np.sqrt(np.average(R2) - np.average(R)**2)
-    return 2*stats.norm.sf(abs(T))
+    return gcm(X, Y, f_hat, g_hat)
 
 
 def krr_gcm(X, Y, Z):
     # H0: X independent of Y given Z <=> GCM: T ~ N(0,1)
     f_hat, g_hat = pred_krr(X, Z), pred_krr(Y, Z)
-    R = [(X[i] - f_hat[i]) * (Y[i] - g_hat[i]) for i in range(len(X))]
-    R2 = np.square(R)
-    T = np.sqrt(len(X)) * np.average(R) / \
-        np.sqrt(np.average(R2) - np.average(R)**2)
-    return 2*stats.norm.sf(abs(T))
+    return gcm(X, Y, f_hat, g_hat)

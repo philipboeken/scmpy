@@ -116,7 +116,7 @@ class f:
                         + self.exo_map(exogenous))
         return (self.system_map(system)
                 + self.latconf_map(latconfs)
-                + self.context_map(context)
+                + 3 * self.context_map(context)
                 + self.exo_map(exogenous))
 
     def depends_on(self, fs):

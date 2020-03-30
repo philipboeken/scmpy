@@ -1,6 +1,6 @@
 from itertools import combinations, product, permutations
 from sklearn.metrics import roc_curve, auc
-from independence_tests import corr
+from independence_tests import *
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 import numpy as np
@@ -14,21 +14,45 @@ class SCMEstimator:
         self.alpha = alpha
         self.last_alg = ''
         self.data = data
+        self.depcies = DataFrame(0, index=self.nodes(),
+                                 columns=self.nodes('system'))
+        self.arel = DataFrame(0, index=self.nodes('system'),
+                              columns=self.nodes('system'))
+        self.conf = DataFrame(0.0, index=self.nodes('system'),
+                              columns=self.nodes('system'))
 
     def nodes(self, type=None):
         if type:
             return sorted(getattr(self, type), key=lambda node: node.name)
         return sorted(self.system | self.context, key=lambda node: node.name)
 
+    def lcd_speedup(self, surgical=False):
+        # {(X dep Y), (C dep X), (Y indep C given X)} => X->Y
+        for X, Y in permutations(self.nodes('system'), 2):
+            for C in X.parents(type='context'):
+                data = self.get_data(obs=True, context=C)
+                if corr(data[C], data[X]) > self.alpha:
+                    continue
+                self.depcies.at[C, X] = 1
+                data = self.get_data(obs=True)
+                gam_y = get_gam(data[X], data[Y])
+                if pval_gam(gam_y) > self.alpha:
+                    continue
+                self.depcies.at[X, Y] = 1
+                data = self.get_data(obs=True, context=C)
+                pred_c = pred_gam(data[C], data[X])
+                pred_y = get_pred_from_gam(gam_y, data[X])
+                pval = gcm(data[Y], data[C], pred_y, pred_c)
+                if pval < self.alpha:
+                    continue
+                self.arel.at[X, Y] = 1
+                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
+        self.last_alg = 'lcd-speedup'
+
     def lcd(self, indep_test, c_indep_test):
         # {(X dep Y), (C dep X), (Y indep C given X)} => X->Y
         p_dep = DataFrame(0.0, index=self.nodes(),
                           columns=self.nodes('system'))
-        self.arel = DataFrame(0, index=self.nodes('system'),
-                              columns=self.nodes('system'))
-        self.conf = DataFrame(0.0, index=self.nodes('system'),
-                              columns=self.nodes('system'))
-
         for X, Y in combinations(self.nodes('system'), 2):
             data = self.get_data(obs=True)
             p_dep.at[X, Y] = indep_test(data[X], data[Y])
