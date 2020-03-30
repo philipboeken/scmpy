@@ -69,7 +69,8 @@ class nonlinear_f:
 
     def __f(self, a, x):
         # return m.exp(-x**2) * m.sin(a * x)
-        return m.sin(8*x)
+        # return x**2
+        return m.sin(5 * x)
 
 
 class f:
@@ -206,6 +207,8 @@ class SCM:
         f.write(self.maps_output())
         f.close()
 
-        self.H.adjacency_matrix('system', sort=True).to_csv(f'{outdir}/sim-edge.csv', sep='\t')
+        self.H.adjacency_matrix('system', sort=True).to_csv(
+            f'{outdir}/sim-edge.csv', sep='\t')
 
-        self.H.ancestral_matrix('system').to_csv(f'{outdir}/sim-arel.csv', sep='\t')
+        self.H.ancestral_matrix('system').to_csv(
+            f'{outdir}/sim-arel.csv', sep='\t')

@@ -9,12 +9,11 @@ import math as m
 
 
 class SCMGenerator:
-    def __init__(self, p, q, eps, eta, acyclic, surgical, rel):
+    def __init__(self, p, q, eps, eta, surgical, rel):
         self.p = p
         self.q = q
         self.eps = eps
         self.eta = eta
-        self.acyclic = acyclic
         self.surgical = surgical
         self.rel = rel
         self.scm = SCM()
@@ -83,7 +82,7 @@ class SCMGenerator:
         while True:
             self.init_scm()
             self.add_directed_edges()
-            if self.acyclic == self.scm.is_acyclic():
+            if self.scm.is_acyclic():
                 break
         self.add_latent_confs()
         self.add_mappings()
@@ -148,11 +147,7 @@ class SCMSimulator:
         for _ in range(N):
             self.randomize_state(target='exogenous')
             self.randomize_state(target='latconf')
-            if self.scm.is_acyclic():
-                SCMSolver.iterate(self)
-            else:
-                self.randomize_state(target='system')
-                SCMSolver.solve(self)
+            SCMSolver.iterate(self)
             sample += [self.state()]
         return sample
 
@@ -189,7 +184,3 @@ class SCMSolver:
         exogenous = [rv.value for rv in scm.randvars(
             nodes=f.exo_map.domain, sort=True)]
         target.value = f.evaluate(system, latconfs, context, exogenous)
-
-    @staticmethod
-    def solve(scm):
-        print('TODO')

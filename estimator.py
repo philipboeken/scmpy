@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from pandas import DataFrame
 import numpy as np
 import math as m
+import time
 
 
 class SCMEstimator:
@@ -26,8 +27,33 @@ class SCMEstimator:
             return sorted(getattr(self, type), key=lambda node: node.name)
         return sorted(self.system | self.context, key=lambda node: node.name)
 
-    def lcd_speedup(self, surgical=False):
+    def lcd_dhsic_gamgcm(self, surgical=False):
         # {(X dep Y), (C dep X), (Y indep C given X)} => X->Y
+        start = time.time()
+        for X, Y in permutations(self.nodes('system'), 2):
+            for C in X.parents(type='context'):
+                data = self.get_data(obs=True, context=C)
+                if corr(data[C], data[X]) > self.alpha:
+                    continue
+                self.depcies.at[C, X] = 1
+                data = self.get_data(obs=True)
+                if dHSIC(data[X], data[Y], self.alpha) > self.alpha:
+                    continue
+                self.depcies.at[X, Y] = 1
+                data = self.get_data(obs=True, context=C)
+                pval = gam_gcm(data[Y], data[C], data[X])
+                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
+                if pval < self.alpha:
+                    continue
+                self.arel.at[X, Y] = 1
+        self.last_alg = 'lcd_dhsic_gamgcm'
+        end = time.time()
+        self.time_elapsed = end - start
+        return self
+
+    def lcd_gam_speedup(self, surgical=False):
+        # {(X dep Y), (C dep X), (Y indep C given X)} => X->Y
+        start = time.time()
         for X, Y in permutations(self.nodes('system'), 2):
             for C in X.parents(type='context'):
                 data = self.get_data(obs=True, context=C)
@@ -43,19 +69,23 @@ class SCMEstimator:
                 pred_c = pred_gam(data[C], data[X])
                 pred_y = get_pred_from_gam(gam_y, data[X])
                 pval = gcm(data[Y], data[C], pred_y, pred_c)
+                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
                 if pval < self.alpha:
                     continue
                 self.arel.at[X, Y] = 1
-                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
-        self.last_alg = 'lcd-speedup'
+        self.last_alg = 'lcd_gam_speedup'
+        end = time.time()
+        self.time_elapsed = end - start
+        return self
 
-    def lcd(self, indep_test, c_indep_test):
+    def lcd_gam(self):
         # {(X dep Y), (C dep X), (Y indep C given X)} => X->Y
+        start = time.time()
         p_dep = DataFrame(0.0, index=self.nodes(),
                           columns=self.nodes('system'))
         for X, Y in combinations(self.nodes('system'), 2):
             data = self.get_data(obs=True)
-            p_dep.at[X, Y] = indep_test(data[X], data[Y])
+            p_dep.at[X, Y] = gam(data[X], data[Y])
             p_dep.at[Y, X] = p_dep.at[X, Y]
         for C, X in product(self.nodes('context'), self.nodes('system')):
             data = self.get_data(obs=True, context=C)
@@ -68,14 +98,49 @@ class SCMEstimator:
                 if p_dep.at[C, X] > self.alpha or not C.is_parent_of(X):
                     continue
                 data = self.get_data(obs=True, context=C)
-                pval = c_indep_test(data[C], data[Y], data[X])
+                pval = gam_gcm(data[C], data[Y], data[X])
+                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
                 if pval < self.alpha:
                     continue
                 self.arel.at[X, Y] = 1
-                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
                 # self.conf.at[X, Y] = max(self.conf.at[X, Y], -np.log(p_dep.at[C, X]))
         self.depcies = p_dep.applymap(lambda x: 1 if x < self.alpha else 0)
-        self.last_alg = 'lcd'
+        self.last_alg = 'lcd_gam'
+        end = time.time()
+        self.time_elapsed = end - start
+        return self
+
+    def lcd_linear(self):
+        # {(X dep Y), (C dep X), (Y indep C given X)} => X->Y
+        start = time.time()
+        p_dep = DataFrame(0.0, index=self.nodes(),
+                          columns=self.nodes('system'))
+        for X, Y in combinations(self.nodes('system'), 2):
+            data = self.get_data(obs=True)
+            p_dep.at[X, Y] = corr(data[X], data[Y])
+            p_dep.at[Y, X] = p_dep.at[X, Y]
+        for C, X in product(self.nodes('context'), self.nodes('system')):
+            data = self.get_data(obs=True, context=C)
+            p_dep.at[C, X] = corr(data[C], data[X])
+
+        for X, Y in permutations(self.nodes('system'), 2):
+            if p_dep.at[X, Y] > self.alpha:
+                continue
+            for C in self.nodes('context'):
+                if p_dep.at[C, X] > self.alpha or not C.is_parent_of(X):
+                    continue
+                data = self.get_data(obs=True, context=C)
+                pval = pcorr(data[C], data[Y], data[X])
+                self.conf.at[X, Y] = max(self.conf.at[X, Y], pval)
+                if pval < self.alpha:
+                    continue
+                self.arel.at[X, Y] = 1
+                # self.conf.at[X, Y] = max(self.conf.at[X, Y], -np.log(p_dep.at[C, X]))
+        self.depcies = p_dep.applymap(lambda x: 1 if x < self.alpha else 0)
+        self.last_alg = 'lcd_linear'
+        end = time.time()
+        self.time_elapsed = end - start
+        return self
 
     def save_to(self, outdir):
         self.depcies.to_csv(
@@ -84,6 +149,9 @@ class SCMEstimator:
         )
         self.conf.to_csv(f'{outdir}/{self.last_alg}-arel-confidence.csv')
         self.arel.to_csv(f'{outdir}/{self.last_alg}-arel.csv', sep='\t')
+        f = open(f'{outdir}/{self.last_alg}-time.txt', 'w+')
+        f.write(str(self.time_elapsed))
+        f.close()
 
     def plot_roc(self, labels, outdir):
         fpr, tpr, _ = roc_curve(

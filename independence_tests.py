@@ -12,6 +12,7 @@ import os
 
 mgcv = importr('mgcv')
 base = importr('base')
+dhsic = importr('dHSIC')
 rstats = importr('stats')
 pandas2ri.activate()
 
@@ -125,6 +126,10 @@ def gam(X, Y):
         gam2 = mgcv.gam(rstats.formula('X~s(Y)'))
         return min(base.summary(gam1).rx2('s.pv')[0],
                    base.summary(gam2).rx2('s.pv')[0])
+
+
+def dHSIC(X, Y, alpha):
+    return dhsic.dhsic_test(X, Y, alpha=alpha).rx2('p.value')[0]
 
 
 def pcorr(X, Y, Z):
