@@ -10,7 +10,7 @@ class id_f:
         self.domain = domain
 
     def __call__(self, x):
-        return 0.3 * sum(list(x))
+        return 0.6 * sum(list(x))
 
     def __str__(self):
         if not self.domain:
@@ -69,7 +69,7 @@ class nonlinear_f:
 
     def __f(self, a, x):
         # return m.exp(-x**2) * m.sin(a * x)
-        return m.sin(2*x)
+        return m.sin(8*x)
 
 
 class f:
